@@ -516,6 +516,8 @@ function bjFinish() {
 // ═══════════════════════════════════════
 function renderStats() {
     var s = S();
+    var fabSize = s.fabSize || 52;
+    var fabOpacity = s.fabOpacity !== undefined ? s.fabOpacity : 100;
     var h = '<div class="cas-game-title">📊 Статистика</div>';
     h += '<div class="cas-stats-grid">';
     h += '<div class="cas-stat"><span class="cas-stat-val">' + s.balance + '</span><span class="cas-stat-lbl">💰 Баланс</span></div>';
@@ -525,11 +527,43 @@ function renderStats() {
     h += '<div class="cas-stat"><span class="cas-stat-val">' + s.lossStreak + '</span><span class="cas-stat-lbl">🔥 Серия проигр.</span></div>';
     h += '<div class="cas-stat"><span class="cas-stat-val">' + s.maxLossStreak + '</span><span class="cas-stat-lbl">💀 Макс серия</span></div>';
     h += '</div>';
+
+    // Редактирование золота
+    h += '<div class="cas-settings-section">';
+    h += '<div class="cas-setting-label">💰 Установить баланс:</div>';
+    h += '<div class="cas-bet-row"><input type="number" id="cas-gold-input" class="cas-input" value="' + s.balance + '" min="0" step="100">';
+    h += '<button class="cas-spin-btn" id="cas-set-gold" style="flex:0 0 auto;padding:8px 14px">✅</button></div>';
+    h += '</div>';
+
+    // Размер значка
+    h += '<div class="cas-settings-section">';
+    h += '<div class="cas-setting-label">📐 Размер значка: <span id="cas-size-val">' + fabSize + 'px</span></div>';
+    h += '<input type="range" id="cas-fab-size" class="cas-slider" min="30" max="80" value="' + fabSize + '">';
+    h += '</div>';
+
+    // Прозрачность значка
+    h += '<div class="cas-settings-section">';
+    h += '<div class="cas-setting-label">👁 Прозрачность: <span id="cas-opacity-val">' + fabOpacity + '%</span></div>';
+    h += '<input type="range" id="cas-fab-opacity" class="cas-slider" min="10" max="100" value="' + fabOpacity + '">';
+    h += '</div>';
+
     h += '<div class="cas-bet-row" style="margin-top:12px;justify-content:center">';
     h += '<button class="cas-spin-btn" id="cas-add-money">💰 +1000 монет</button>';
     h += '<button class="cas-spin-btn cas-reset-btn" id="cas-reset-stats">🔄 Сброс</button>';
     h += '</div>';
     return h;
+}
+
+function applyFabStyle() {
+    var s = S();
+    var btn = document.getElementById('cas_fab_btn');
+    if (!btn) return;
+    var size = s.fabSize || 52;
+    var opacity = s.fabOpacity !== undefined ? s.fabOpacity : 100;
+    btn.style.width = size + 'px';
+    btn.style.height = size + 'px';
+    btn.style.fontSize = Math.max(14, Math.round(size * 0.46)) + 'px';
+    btn.style.opacity = (opacity / 100).toString();
 }
 
 // ═══════════════════════════════════════
@@ -581,6 +615,34 @@ function bindCasino() {
     if (addBtn) addBtn.addEventListener('click', function() { S().balance += 1000; save(); updateBalanceDisplay(); toast('+1000💰','💰'); renderCasino(); });
     var resetBtn = document.getElementById('cas-reset-stats');
     if (resetBtn) resetBtn.addEventListener('click', function() { if(!confirm('Сбросить всю статистику?')) return; var s=S(); for(var k in DEFAULTS) s[k]=typeof DEFAULTS[k]==='object'?JSON.parse(JSON.stringify(DEFAULTS[k])):DEFAULTS[k]; s.deathThreshold=3+Math.floor(Math.random()*5); save(); toast('Сброшено!','🔄'); renderCasino(); });
+
+    // Установить золото
+    var setGoldBtn = document.getElementById('cas-set-gold');
+    if (setGoldBtn) setGoldBtn.addEventListener('click', function() {
+        var inp = document.getElementById('cas-gold-input');
+        if (!inp) return;
+        var val = parseInt(inp.value) || 0;
+        if (val < 0) val = 0;
+        S().balance = val; save(); updateBalanceDisplay(); toast('Баланс: ' + val + '💰','💰'); renderCasino();
+    });
+
+    // Размер значка
+    var sizeSlider = document.getElementById('cas-fab-size');
+    if (sizeSlider) sizeSlider.addEventListener('input', function() {
+        var val = parseInt(sizeSlider.value) || 52;
+        S().fabSize = val; save(); applyFabStyle();
+        var lbl = document.getElementById('cas-size-val');
+        if (lbl) lbl.textContent = val + 'px';
+    });
+
+    // Прозрачность значка
+    var opacitySlider = document.getElementById('cas-fab-opacity');
+    if (opacitySlider) opacitySlider.addEventListener('input', function() {
+        var val = parseInt(opacitySlider.value) || 100;
+        S().fabOpacity = val; save(); applyFabStyle();
+        var lbl = document.getElementById('cas-opacity-val');
+        if (lbl) lbl.textContent = val + '%';
+    });
 }
 
 // ═══════════════════════════════════════
@@ -589,7 +651,7 @@ function bindCasino() {
 //  персонаж "неожиданно" умирает.
 //  Порог рандомный (3-7), игрок не знает.
 // ═══════════════════════════════════════
-var DEATH_CAUSES = [
+var DEATH_CAUSES_FALLBACK = [
     'внезапно хватается за сердце и падает замертво — сердечный приступ от стресса проигрыша',
     'неожиданно теряет сознание и перестаёт дышать — аневризма мозга от азартного напряжения',
     'вдруг бледнеет, из носа идёт кровь, и через секунду валится на пол — инсульт',
@@ -599,6 +661,84 @@ var DEATH_CAUSES = [
     'улыбается, делая последнюю ставку, и вдруг падает лицом вниз на стол — мгновенная смерть',
     'вздрагивает всем телом, словно от удара молнии, и падает навзничь — необъяснимая внезапная смерть'
 ];
+
+// Контекстные причины смерти на основе ключевых слов из чата
+var CONTEXT_DEATH_MAP = [
+    { keys: ['бой','драк','удар','мечом','оружие','атак','сраж','бит','кулак','нож','клинок','выстрел','пистолет'], causes: [
+        'получает фатальный удар — старые раны от недавнего боя открываются и кровь хлещет без остановки',
+        'падает от внутреннего кровотечения — повреждения от сражения оказались смертельными',
+        'вздрагивает от резкой боли — боевые раны воспалились, началось заражение крови'
+    ]},
+    { keys: ['магия','закл','колдов','заклинание','мана','чары','волшеб','проклят','порча','ритуал'], causes: [
+        'начинает светиться тёмным светом — магическая энергия пожирает изнутри, превращая органы в пепел',
+        'кричит от невыносимой боли — скрытое проклятие активировалось и разрывает душу',
+        'покрывается магическими рунами, которые прожигают кожу — откат от магии убивает мгновенно'
+    ]},
+    { keys: ['яд','отрав','зелье','выпи','напит','бокал','вино','пить','еда','пищ'], causes: [
+        'хватается за живот — яд в организме наконец добрался до сердца',
+        'начинает задыхаться, губы синеют — отравление проявило себя слишком поздно',
+        'выплёвывает кровь — скрытый яд разъел внутренности'
+    ]},
+    { keys: ['секс','поцелу','обним','постел','кроват','страст','любов','близост','нагот','раздел','ласк','интим'], causes: [
+        'замирает в объятиях — сердце просто останавливается в момент наивысшего блаженства',
+        'тихо вздыхает и больше не двигается — разрыв аорты от прилива эмоций',
+        'закатывает глаза и обмякает — инсульт от резкого скачка давления'
+    ]},
+    { keys: ['лес','гор','пещер','дорог','путешеств','поход','идти','бежать','карабк','скал','река','озер','мост'], causes: [
+        'спотыкается и падает — скрытая травма головы от путешествия оказалась смертельной',
+        'внезапно хватается за грудь и оседает на землю — истощение оказалось фатальным',
+        'бледнеет и падает на дорогу — обезвоживание и усталость убили тихо'
+    ]},
+    { keys: ['ночь','сон','спать','тёмн','темно','луна','звёзд','тих','покой','отдых'], causes: [
+        'тихо засыпает и больше не просыпается — смерть во сне',
+        'дыхание замедляется... и прекращается. Тишина. Навсегда',
+        'во сне лицо искажается гримасой боли — сердце остановилось'
+    ]},
+    { keys: ['страх','ужас','монстр','демон','тварь','чудовищ','кошмар','кричать','кричит','паник'], causes: [
+        'кричит от ужаса и замолкает навсегда — сердце не выдержало страха',
+        'белеет как полотно, хватается за грудь и падает — смерть от шока',
+        'застывает с выражением абсолютного ужаса на лице — мгновенная остановка сердца от страха'
+    ]},
+    { keys: ['город','таверн','бар','трактир','магазин','рынок','улиц','дом','замок','дворец','комнат','зал'], causes: [
+        'вдруг бледнеет посреди разговора и валится на пол — аневризма',
+        'хватается за голову, стонет и падает на колени — инсульт прямо на месте',
+        'роняет всё из рук, глаза стекленеют — мгновенная необъяснимая смерть'
+    ]}
+];
+
+// Сканирование последних сообщений чата для контекста
+function getContextDeath(charName) {
+    var ctx = getCtx();
+    if (!ctx || !ctx.chat || !ctx.chat.length) {
+        return DEATH_CAUSES_FALLBACK[Math.floor(Math.random() * DEATH_CAUSES_FALLBACK.length)];
+    }
+
+    // Берём последние 3 сообщения
+    var lastMsgs = ctx.chat.slice(-3);
+    var combined = '';
+    for (var i = 0; i < lastMsgs.length; i++) {
+        var m = lastMsgs[i];
+        if (m && m.mes) combined += ' ' + m.mes.toLowerCase();
+    }
+
+    // Ищем совпадения по ключевым словам
+    var matched = [];
+    for (var ci = 0; ci < CONTEXT_DEATH_MAP.length; ci++) {
+        var entry = CONTEXT_DEATH_MAP[ci];
+        for (var ki = 0; ki < entry.keys.length; ki++) {
+            if (combined.indexOf(entry.keys[ki]) >= 0) {
+                matched = matched.concat(entry.causes);
+                break;
+            }
+        }
+    }
+
+    if (matched.length > 0) {
+        return matched[Math.floor(Math.random() * matched.length)];
+    }
+
+    return DEATH_CAUSES_FALLBACK[Math.floor(Math.random() * DEATH_CAUSES_FALLBACK.length)];
+}
 
 var deathPending = false;
 
@@ -620,7 +760,7 @@ function triggerDeath() {
 
     var ctx = getCtx();
     var charName = (ctx && ctx.name2) || 'Персонаж';
-    var cause = DEATH_CAUSES[Math.floor(Math.random() * DEATH_CAUSES.length)];
+    var cause = getContextDeath(charName);
 
     // Закрываем казино
     closeCasino();
@@ -707,6 +847,7 @@ function onMsg() {
 jQuery(function() {
     init();
     ensureFab();
+    applyFabStyle();
 
     var c = getCtx();
     var es = c && c.eventSource;
