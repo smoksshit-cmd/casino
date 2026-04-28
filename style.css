@@ -122,10 +122,17 @@
 .cas-tabs {
   display: flex;
   border-bottom: 1px solid rgba(255,215,0,0.1);
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  flex-shrink: 0;
 }
+.cas-tabs::-webkit-scrollbar { display: none; }
 .cas-tab {
-  flex: 1;
-  padding: 10px 4px;
+  flex: 0 0 auto;
+  padding: 10px 8px;
   text-align: center;
   font-size: 12px;
   font-weight: 600;
