@@ -208,8 +208,12 @@ function renderCasino() {
     h += '<div class="cas-tabs">';
     h += '<div class="cas-tab' + (currentTab==='roulette'?' cas-tab-active':'') + '" data-tab="roulette">🎡 Рулетка</div>';
     h += '<div class="cas-tab' + (currentTab==='slots'?' cas-tab-active':'') + '" data-tab="slots">🎰 Слоты</div>';
-    h += '<div class="cas-tab' + (currentTab==='blackjack'?' cas-tab-active':'') + '" data-tab="blackjack">🃏 Блэкджек</div>';
-    h += '<div class="cas-tab' + (currentTab==='stats'?' cas-tab-active':'') + '" data-tab="stats">📊 Стата</div>';
+    h += '<div class="cas-tab' + (currentTab==='blackjack'?' cas-tab-active':'') + '" data-tab="blackjack">🃏 БД</div>';
+    h += '<div class="cas-tab' + (currentTab==='dice'?' cas-tab-active':'') + '" data-tab="dice">🎲 Кости</div>';
+    h += '<div class="cas-tab' + (currentTab==='russianr'?' cas-tab-active':'') + '" data-tab="russianr">💣 РР</div>';
+    h += '<div class="cas-tab' + (currentTab==='hilo'?' cas-tab-active':'') + '" data-tab="hilo">🔢 HiLo</div>';
+    h += '<div class="cas-tab' + (currentTab==='buckshot'?' cas-tab-active':'') + '" data-tab="buckshot">🔫 BSR</div>';
+    h += '<div class="cas-tab' + (currentTab==='stats'?' cas-tab-active':'') + '" data-tab="stats">📊</div>';
     h += '</div>';
 
     // Body
@@ -217,6 +221,10 @@ function renderCasino() {
     if (currentTab === 'roulette') h += renderRoulette();
     else if (currentTab === 'slots') h += renderSlots();
     else if (currentTab === 'blackjack') h += renderBlackjack();
+    else if (currentTab === 'dice') h += renderDice();
+    else if (currentTab === 'russianr') h += renderRussianRoulette();
+    else if (currentTab === 'hilo') h += renderHiLo();
+    else if (currentTab === 'buckshot') h += renderBuckshot();
     else if (currentTab === 'stats') h += renderStats();
     h += '</div>';
 
@@ -512,6 +520,689 @@ function bjFinish() {
 }
 
 // ═══════════════════════════════════════
+//  КОСТИ (CRAPS)
+// ═══════════════════════════════════════
+var diceBet = 100;
+var diceRolling = false;
+var dicePick = '7'; // '7' | '11' | 'doubles' | 'under7' | 'over7'
+var diceResult = [0, 0];
+
+function renderDice() {
+    var DICE_FACES = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+    var h = '<div class="cas-game-title">🎲 Кости</div>';
+    h += '<div class="cas-dice-area">';
+    h += '<div class="cas-dice-pair">';
+    h += '<span class="cas-die" id="cas-die0">' + (diceResult[0] ? DICE_FACES[diceResult[0]-1] : '🎲') + '</span>';
+    h += '<span class="cas-die" id="cas-die1">' + (diceResult[1] ? DICE_FACES[diceResult[1]-1] : '🎲') + '</span>';
+    h += '</div>';
+    if (diceResult[0]) h += '<div class="cas-dice-sum">Сумма: ' + (diceResult[0]+diceResult[1]) + '</div>';
+    h += '</div>';
+    h += '<div class="cas-bet-section">';
+    h += '<div class="cas-bet-row"><span>Ставка:</span>';
+    h += '<button class="cas-chip" data-dbet="50">50</button>';
+    h += '<button class="cas-chip" data-dbet="100">100</button>';
+    h += '<button class="cas-chip" data-dbet="250">250</button>';
+    h += '<button class="cas-chip" data-dbet="500">500</button>';
+    h += '</div>';
+    h += '<div class="cas-bet-row"><span>На что:</span>';
+    h += '<button class="cas-pick' + (dicePick==='7'?' active':'') + '" data-dpick="7">7 (x4)</button>';
+    h += '<button class="cas-pick' + (dicePick==='11'?' active':'') + '" data-dpick="11">11 (x6)</button>';
+    h += '<button class="cas-pick' + (dicePick==='doubles'?' active':'') + '" data-dpick="doubles">Дубль (x5)</button>';
+    h += '<button class="cas-pick' + (dicePick==='under7'?' active':'') + '" data-dpick="under7">&lt;7 (x2)</button>';
+    h += '<button class="cas-pick' + (dicePick==='over7'?' active':'') + '" data-dpick="over7">&gt;7 (x2)</button>';
+    h += '</div>';
+    h += '<div class="cas-bet-row">';
+    h += '<button class="cas-spin-btn" id="cas-dice-roll">🎲 БРОСИТЬ (' + diceBet + '💰)</button>';
+    h += '</div></div>';
+    h += '<div class="cas-result-msg" id="cas-dice-msg"></div>';
+    h += '<div class="cas-slot-paytable"><b>Правила:</b> Бросаешь 2 кубика. Ставишь на сумму или тип. Угадал — забираешь!</div>';
+    return h;
+}
+
+function doDiceRoll() {
+    if (diceRolling) return;
+    var s = S();
+    if (s.balance < diceBet) { toast('Недостаточно средств!','❌'); return; }
+    diceRolling = true;
+    s.balance -= diceBet; s.totalBets++; s.gamesPlayed++; save(); updateBalanceDisplay();
+
+    var d0 = document.getElementById('cas-die0');
+    var d1 = document.getElementById('cas-die1');
+    if (d0) d0.classList.add('cas-reel-spin');
+    if (d1) d1.classList.add('cas-reel-spin');
+
+    var DICE_FACES = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+    var r0 = 1 + Math.floor(Math.random()*6);
+    var r1 = 1 + Math.floor(Math.random()*6);
+    diceResult = [r0, r1];
+    var sum = r0 + r1;
+
+    setTimeout(function() {
+        if (d0) { d0.textContent = DICE_FACES[r0-1]; d0.classList.remove('cas-reel-spin'); }
+        if (d1) { d1.textContent = DICE_FACES[r1-1]; d1.classList.remove('cas-reel-spin'); }
+
+        var win = false, mult = 0;
+        if (dicePick === '7' && sum === 7) { win = true; mult = 4; }
+        else if (dicePick === '11' && sum === 11) { win = true; mult = 6; }
+        else if (dicePick === 'doubles' && r0 === r1) { win = true; mult = 5; }
+        else if (dicePick === 'under7' && sum < 7) { win = true; mult = 2; }
+        else if (dicePick === 'over7' && sum > 7) { win = true; mult = 2; }
+
+        var msg = document.getElementById('cas-dice-msg');
+        if (win) {
+            var winnings = diceBet * mult;
+            s.balance += winnings; s.totalWins++; s.lossStreak = 0; save(); updateBalanceDisplay();
+            if (msg) { msg.textContent = '🎉 ' + DICE_FACES[r0-1] + ' + ' + DICE_FACES[r1-1] + ' = ' + sum + '! Выигрыш: +' + winnings + '💰'; msg.className = 'cas-result-msg cas-win'; }
+            toast('Кости +' + winnings + '💰!','🎲');
+        } else {
+            s.totalLosses++; s.lossStreak++;
+            if (s.lossStreak > s.maxLossStreak) s.maxLossStreak = s.lossStreak;
+            save();
+            if (msg) { msg.textContent = '😞 ' + DICE_FACES[r0-1] + ' + ' + DICE_FACES[r1-1] + ' = ' + sum + '. Мимо! -' + diceBet + '💰'; msg.className = 'cas-result-msg cas-lose'; }
+            if (checkDeath()) setTimeout(function(){ triggerDeath(); }, 1500);
+        }
+        diceRolling = false;
+    }, 1500);
+}
+
+// ═══════════════════════════════════════
+//  РУССКАЯ РУЛЕТКА
+// ═══════════════════════════════════════
+var rrBet = 200;
+var rrChambers = 6;
+var rrBullet = -1; // позиция пули
+var rrCurrent = 0; // текущая камера
+var rrSpinning = false;
+var rrAlive = true;
+var rrRound = 0;
+
+function rrReset() {
+    rrBullet = Math.floor(Math.random() * rrChambers);
+    rrCurrent = 0;
+    rrAlive = true;
+    rrRound = 0;
+}
+
+function renderRussianRoulette() {
+    var h = '<div class="cas-game-title">💣 Русская Рулетка</div>';
+    h += '<div class="cas-rr-area">';
+    // Барабан
+    h += '<div class="cas-rr-cylinder">';
+    for (var i = 0; i < rrChambers; i++) {
+        var cls = 'cas-rr-chamber';
+        if (i < rrCurrent && rrAlive) cls += ' cas-rr-empty';
+        if (i === rrCurrent && !rrAlive) cls += ' cas-rr-bullet';
+        h += '<div class="' + cls + '">' + (i < rrCurrent ? (i === rrCurrent - 1 && !rrAlive ? '💀' : '○') : '?') + '</div>';
+    }
+    h += '</div>';
+    h += '<div class="cas-rr-info">';
+    if (rrBullet === -1) {
+        h += '<div>Барабан пуст. Заряди и играй!</div>';
+    } else if (!rrAlive) {
+        h += '<div class="cas-rr-dead">💀 BANG! Пуля в камере ' + (rrCurrent) + '!</div>';
+    } else {
+        h += '<div>Раунд: ' + rrRound + '/' + rrChambers + ' | Множитель: x' + (rrRound + 1) + '</div>';
+        h += '<div>Шанс выжить: ' + Math.round((rrChambers - rrCurrent - 1) / (rrChambers - rrCurrent) * 100) + '%</div>';
+    }
+    h += '</div></div>';
+    h += '<div class="cas-bet-section">';
+    h += '<div class="cas-bet-row"><span>Ставка:</span>';
+    h += '<button class="cas-chip" data-rrbet="100">100</button>';
+    h += '<button class="cas-chip" data-rrbet="200">200</button>';
+    h += '<button class="cas-chip" data-rrbet="500">500</button>';
+    h += '<button class="cas-chip" data-rrbet="1000">1K</button>';
+    h += '</div>';
+    h += '<div class="cas-bet-row">';
+    if (rrBullet === -1) {
+        h += '<button class="cas-spin-btn" id="cas-rr-load">🔫 ЗАРЯДИТЬ (' + rrBet + '💰)</button>';
+    } else if (rrAlive && rrCurrent < rrChambers) {
+        h += '<button class="cas-spin-btn cas-rr-trigger" id="cas-rr-pull">💣 НАЖАТЬ КУРОК</button>';
+        h += '<button class="cas-spin-btn cas-rr-cashout" id="cas-rr-cash">💰 ЗАБРАТЬ (x' + (rrRound + 1) + ')</button>';
+    } else {
+        h += '<button class="cas-spin-btn" id="cas-rr-again">🔄 ЕЩЁ РАЗ</button>';
+    }
+    h += '</div></div>';
+    h += '<div class="cas-result-msg" id="cas-rr-msg"></div>';
+    h += '<div class="cas-slot-paytable"><b>Правила:</b> 6 камер, 1 пуля. Каждый щелчок — множитель растёт. Забери деньги или рискни. Если пуля — теряешь ВСЁ и получаешь смерть!</div>';
+    return h;
+}
+
+function rrLoad() {
+    var s = S();
+    if (s.balance < rrBet) { toast('Недостаточно средств!','❌'); return; }
+    s.balance -= rrBet; s.totalBets++; s.gamesPlayed++; save(); updateBalanceDisplay();
+    rrReset();
+    rrBullet = Math.floor(Math.random() * rrChambers);
+    renderCasino();
+    toast('Барабан заряжен... 🔫','💣');
+}
+
+function rrPull() {
+    if (rrSpinning || !rrAlive) return;
+    rrSpinning = true;
+
+    setTimeout(function() {
+        if (rrCurrent === rrBullet) {
+            // BANG!
+            rrAlive = false;
+            var s = S();
+            s.totalLosses++; s.lossStreak++;
+            if (s.lossStreak > s.maxLossStreak) s.maxLossStreak = s.lossStreak;
+            save();
+            renderCasino();
+            var msg = document.getElementById('cas-rr-msg');
+            if (msg) { msg.textContent = '💀 BANG! Ты мёртв. Ставка потеряна.'; msg.className = 'cas-result-msg cas-lose'; }
+            toast('BANG! 💀','💣');
+            // Русская рулетка = instant death, без счётчика
+            setTimeout(function(){ triggerDeath(); }, 2000);
+        } else {
+            rrCurrent++;
+            rrRound++;
+            renderCasino();
+            var msg2 = document.getElementById('cas-rr-msg');
+            if (msg2) { msg2.textContent = '🔫 *щёлк* — Пусто! Множитель: x' + (rrRound + 1); msg2.className = 'cas-result-msg cas-win'; }
+            toast('*щёлк* Пусто! 😰','🔫');
+        }
+        rrSpinning = false;
+    }, 800);
+}
+
+function rrCashOut() {
+    var s = S();
+    var winnings = rrBet * (rrRound + 1);
+    s.balance += winnings; s.totalWins++; s.lossStreak = 0; save(); updateBalanceDisplay();
+    toast('Забрал ' + winnings + '💰!','💰');
+    rrBullet = -1;
+    renderCasino();
+    var msg = document.getElementById('cas-rr-msg');
+    if (msg) { msg.textContent = '🎉 Забрал ' + winnings + '💰! Умный ход.'; msg.className = 'cas-result-msg cas-win'; }
+}
+
+// ═══════════════════════════════════════
+//  HI-LO (БОЛЬШЕ-МЕНЬШЕ)
+// ═══════════════════════════════════════
+var hiloBet = 100;
+var hiloCard = 0;      // текущая карта (1-13)
+var hiloStreak = 0;    // серия угадываний
+var hiloActive = false;
+var hiloHistory = [];
+
+function hiloNewCard() { return 1 + Math.floor(Math.random() * 13); }
+function hiloCardName(v) {
+    var names = ['','A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+    return names[v] || v;
+}
+function hiloCardEmoji(v) {
+    var suits = ['♠','♥','♦','♣'];
+    return hiloCardName(v) + suits[Math.floor(Math.random()*4)];
+}
+
+function renderHiLo() {
+    var mult = Math.max(1, 1 + hiloStreak * 0.5);
+    var h = '<div class="cas-game-title">🔢 Hi-Lo (Больше-Меньше)</div>';
+    h += '<div class="cas-hilo-area">';
+    h += '<div class="cas-hilo-card">' + (hiloCard ? hiloCardName(hiloCard) : '?') + '</div>';
+    if (hiloHistory.length) {
+        h += '<div class="cas-hilo-history">';
+        for (var i = 0; i < hiloHistory.length; i++) h += '<span class="cas-hilo-hist">' + hiloCardName(hiloHistory[i]) + '</span>';
+        h += '</div>';
+    }
+    h += '<div class="cas-hilo-mult">Множитель: x' + mult.toFixed(1) + ' | Серия: ' + hiloStreak + '</div>';
+    h += '</div>';
+    h += '<div class="cas-bet-section">';
+    if (!hiloActive) {
+        h += '<div class="cas-bet-row"><span>Ставка:</span>';
+        h += '<button class="cas-chip" data-hlbet="50">50</button>';
+        h += '<button class="cas-chip" data-hlbet="100">100</button>';
+        h += '<button class="cas-chip" data-hlbet="250">250</button>';
+        h += '<button class="cas-chip" data-hlbet="500">500</button>';
+        h += '</div>';
+        h += '<div class="cas-bet-row"><button class="cas-spin-btn" id="cas-hilo-start">🔢 ИГРАТЬ (' + hiloBet + '💰)</button></div>';
+    } else {
+        h += '<div class="cas-bet-row">';
+        h += '<button class="cas-spin-btn cas-hilo-hi" id="cas-hilo-hi">⬆️ БОЛЬШЕ</button>';
+        h += '<button class="cas-spin-btn cas-hilo-lo" id="cas-hilo-lo">⬇️ МЕНЬШЕ</button>';
+        h += '<button class="cas-spin-btn cas-rr-cashout" id="cas-hilo-cash">💰 ЗАБРАТЬ (x' + mult.toFixed(1) + ')</button>';
+        h += '</div>';
+    }
+    h += '</div>';
+    h += '<div class="cas-result-msg" id="cas-hilo-msg"></div>';
+    h += '<div class="cas-slot-paytable"><b>Правила:</b> Показана карта. Угадай: следующая будет больше или меньше? Каждое угадывание увеличивает множитель. Забери в любой момент!</div>';
+    return h;
+}
+
+function hiloStart() {
+    var s = S();
+    if (s.balance < hiloBet) { toast('Недостаточно средств!','❌'); return; }
+    s.balance -= hiloBet; s.totalBets++; s.gamesPlayed++; save(); updateBalanceDisplay();
+    hiloCard = hiloNewCard();
+    hiloStreak = 0;
+    hiloHistory = [];
+    hiloActive = true;
+    renderCasino();
+}
+
+function hiloGuess(isHi) {
+    var next = hiloNewCard();
+    hiloHistory.push(hiloCard);
+    var correct = false;
+    if (isHi && next > hiloCard) correct = true;
+    else if (!isHi && next < hiloCard) correct = true;
+    else if (next === hiloCard) correct = true; // ничья = повезло
+
+    hiloCard = next;
+
+    if (correct) {
+        hiloStreak++;
+        renderCasino();
+        var msg = document.getElementById('cas-hilo-msg');
+        if (msg) { msg.textContent = '✅ Верно! ' + hiloCardName(next) + ' — Серия: ' + hiloStreak; msg.className = 'cas-result-msg cas-win'; }
+        toast('Верно! Серия ' + hiloStreak + '!','✅');
+    } else {
+        var s = S();
+        s.totalLosses++; s.lossStreak++;
+        if (s.lossStreak > s.maxLossStreak) s.maxLossStreak = s.lossStreak;
+        save();
+        hiloActive = false;
+        renderCasino();
+        var msg2 = document.getElementById('cas-hilo-msg');
+        if (msg2) { msg2.textContent = '❌ Неверно! Было ' + hiloCardName(hiloHistory[hiloHistory.length-1]) + ', выпало ' + hiloCardName(next) + '. -' + hiloBet + '💰'; msg2.className = 'cas-result-msg cas-lose'; }
+        if (checkDeath()) setTimeout(function(){ triggerDeath(); }, 1500);
+    }
+}
+
+function hiloCashOut() {
+    var s = S();
+    var mult = Math.max(1, 1 + hiloStreak * 0.5);
+    var winnings = Math.floor(hiloBet * mult);
+    s.balance += winnings; s.totalWins++; s.lossStreak = 0; save(); updateBalanceDisplay();
+    hiloActive = false;
+    renderCasino();
+    var msg = document.getElementById('cas-hilo-msg');
+    if (msg) { msg.textContent = '🎉 Забрал ' + winnings + '💰! (x' + mult.toFixed(1) + ')'; msg.className = 'cas-result-msg cas-win'; }
+    toast('Hi-Lo +' + winnings + '💰!','🔢');
+}
+
+// ═══════════════════════════════════════
+//  BUCKSHOT ROULETTE
+// ═══════════════════════════════════════
+var bsrBet = 300;
+var bsrState = 'idle'; // 'idle' | 'playing' | 'dealerTurn' | 'over'
+var bsrShells = [];    // true = live, false = blank
+var bsrIndex = 0;
+var bsrPlayerHP = 0;
+var bsrDealerHP = 0;
+var bsrMaxHP = 3;
+var bsrRound = 1;
+var bsrLog = [];
+var bsrItems = [];     // player items
+var bsrDealerItems = [];
+var bsrSawed = false;  // пила активна?
+var bsrCuffed = false; // дилер в наручниках?
+var bsrKnownShell = -1;// лупа: индекс, для которого знаем
+
+var BSR_ITEMS = ['🔍','🔪','🍺','💊','⛓️'];
+// 🔍 Лупа — показать текущий патрон
+// 🔪 Пила — следующий выстрел x2
+// 🍺 Пиво — выбросить текущий патрон
+// 💊 Таблетка — +1 или -1 HP (50/50)
+// ⛓️ Наручники — дилер пропустит ход
+
+function bsrNewRound() {
+    var liveCount = 1 + Math.floor(Math.random() * 3); // 1-3 боевых
+    var blankCount = 1 + Math.floor(Math.random() * 4); // 1-4 холостых
+    bsrShells = [];
+    var i;
+    for (i = 0; i < liveCount; i++) bsrShells.push(true);
+    for (i = 0; i < blankCount; i++) bsrShells.push(false);
+    // Перемешать
+    for (i = bsrShells.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var tmp = bsrShells[i]; bsrShells[i] = bsrShells[j]; bsrShells[j] = tmp;
+    }
+    bsrIndex = 0;
+    bsrSawed = false;
+    bsrCuffed = false;
+    bsrKnownShell = -1;
+    // Раздать предметы (1-3 случайных каждому)
+    var itemCount = Math.min(bsrRound + 1, 4);
+    bsrItems = []; bsrDealerItems = [];
+    for (i = 0; i < itemCount; i++) {
+        bsrItems.push(BSR_ITEMS[Math.floor(Math.random() * BSR_ITEMS.length)]);
+        bsrDealerItems.push(BSR_ITEMS[Math.floor(Math.random() * BSR_ITEMS.length)]);
+    }
+    var live = 0, blank = 0;
+    for (i = 0; i < bsrShells.length; i++) { if (bsrShells[i]) live++; else blank++; }
+    bsrLog.push('🔫 Раунд ' + bsrRound + ': ' + live + ' боевых, ' + blank + ' холостых. Заряжено!');
+}
+
+function bsrStart() {
+    var s = S();
+    if (s.balance < bsrBet) { toast('Недостаточно средств!','❌'); return; }
+    s.balance -= bsrBet; s.totalBets++; s.gamesPlayed++; save(); updateBalanceDisplay();
+    bsrState = 'playing';
+    bsrRound = 1;
+    bsrMaxHP = 3;
+    bsrPlayerHP = bsrMaxHP;
+    bsrDealerHP = bsrMaxHP;
+    bsrLog = ['💀 Buckshot Roulette начинается...'];
+    bsrNewRound();
+    renderCasino();
+}
+
+function bsrShoot(target) {
+    if (bsrState !== 'playing' || bsrIndex >= bsrShells.length) return;
+    var isLive = bsrShells[bsrIndex];
+    var dmg = bsrSawed ? 2 : 1;
+    bsrSawed = false;
+    bsrKnownShell = -1;
+    bsrIndex++;
+
+    if (target === 'dealer') {
+        if (isLive) {
+            bsrDealerHP -= dmg;
+            bsrLog.push('💥 Ты стреляешь в Дилера — БОЕВОЙ! (-' + dmg + ' HP)');
+            if (bsrDealerHP <= 0) {
+                bsrLog.push('🎉 Дилер мёртв! Ты победил раунд ' + bsrRound + '!');
+                bsrWinRound();
+                renderCasino(); return;
+            }
+        } else {
+            bsrLog.push('🔫 Ты стреляешь в Дилера — холостой. *щёлк*');
+        }
+        // После выстрела в дилера — ход дилера
+        if (bsrIndex < bsrShells.length && bsrDealerHP > 0) {
+            bsrState = 'dealerTurn';
+            renderCasino();
+            setTimeout(bsrDealerMove, 1200);
+            return;
+        }
+    } else {
+        // Стреляешь в себя
+        if (isLive) {
+            bsrPlayerHP -= dmg;
+            bsrLog.push('💀 Ты стреляешь в СЕБЯ — БОЕВОЙ! (-' + dmg + ' HP)');
+            if (bsrPlayerHP <= 0) {
+                bsrLog.push('💀 Ты мёртв. Дилер выиграл.');
+                bsrLose();
+                renderCasino(); return;
+            }
+            // После боевого в себя — ход дилера
+            if (bsrIndex < bsrShells.length) {
+                bsrState = 'dealerTurn';
+                renderCasino();
+                setTimeout(bsrDealerMove, 1200);
+                return;
+            }
+        } else {
+            bsrLog.push('🔫 Ты стреляешь в СЕБЯ — холостой! Ещё один ход!');
+            // Холостой в себя = ещё ход
+        }
+    }
+
+    bsrCheckEndOfShells();
+    renderCasino();
+}
+
+function bsrDealerMove() {
+    if (bsrState !== 'dealerTurn' || bsrIndex >= bsrShells.length) {
+        bsrCheckEndOfShells();
+        bsrState = 'playing';
+        renderCasino();
+        return;
+    }
+
+    // Дилер AI: если в наручниках — пропускает
+    if (bsrCuffed) {
+        bsrCuffed = false;
+        bsrLog.push('⛓️ Дилер в наручниках — пропускает ход.');
+        bsrState = 'playing';
+        renderCasino();
+        return;
+    }
+
+    // Дилер пытается использовать предметы (простой AI)
+    if (bsrDealerItems.length > 0) {
+        // Приоритет: лупа > пила > пиво > таблетка
+        var lupaIdx = bsrDealerItems.indexOf('🔍');
+        if (lupaIdx >= 0 && bsrIndex < bsrShells.length) {
+            bsrDealerItems.splice(lupaIdx, 1);
+            // Дилер "смотрит" и решает
+            var shell = bsrShells[bsrIndex];
+            bsrLog.push('🔍 Дилер использует Лупу...');
+            if (!shell) {
+                // Холостой — стреляет в себя
+                bsrIndex++;
+                bsrLog.push('🔫 Дилер стреляет в себя — холостой. Ещё ход!');
+                renderCasino();
+                setTimeout(bsrDealerMove, 1000);
+                return;
+            }
+            // Боевой — будет стрелять в игрока с пилой если есть
+        }
+        var sawIdx = bsrDealerItems.indexOf('🔪');
+        if (sawIdx >= 0) {
+            bsrDealerItems.splice(sawIdx, 1);
+            bsrSawed = true;
+            bsrLog.push('🔪 Дилер использует Пилу — x2 урон!');
+        }
+    }
+
+    // Дилер решает: стрелять в игрока или в себя
+    // Простая логика: если больше холостых осталось — стреляет в себя, иначе в игрока
+    var livesLeft = 0, blanksLeft = 0;
+    for (var i = bsrIndex; i < bsrShells.length; i++) { if (bsrShells[i]) livesLeft++; else blanksLeft++; }
+
+    var isLive = bsrShells[bsrIndex];
+    var dmg = bsrSawed ? 2 : 1;
+    bsrSawed = false;
+    bsrIndex++;
+
+    if (blanksLeft > livesLeft && Math.random() > 0.4) {
+        // Стреляет в себя
+        if (isLive) {
+            bsrDealerHP -= dmg;
+            bsrLog.push('💥 Дилер стреляет в себя — БОЕВОЙ! (-' + dmg + ' HP)');
+            if (bsrDealerHP <= 0) {
+                bsrLog.push('🎉 Дилер убил себя! Ты победил!');
+                bsrWinRound();
+                renderCasino(); return;
+            }
+            bsrState = 'playing';
+            renderCasino(); return;
+        } else {
+            bsrLog.push('🔫 Дилер стреляет в себя — холостой. Ещё ход!');
+            renderCasino();
+            setTimeout(bsrDealerMove, 1000);
+            return;
+        }
+    } else {
+        // Стреляет в игрока
+        if (isLive) {
+            bsrPlayerHP -= dmg;
+            bsrLog.push('💀 Дилер стреляет в тебя — БОЕВОЙ! (-' + dmg + ' HP)');
+            if (bsrPlayerHP <= 0) {
+                bsrLog.push('💀 Ты мёртв от руки Дилера.');
+                bsrLose();
+                renderCasino(); return;
+            }
+        } else {
+            bsrLog.push('🔫 Дилер стреляет в тебя — холостой. Повезло!');
+        }
+        bsrState = 'playing';
+    }
+
+    bsrCheckEndOfShells();
+    renderCasino();
+}
+
+function bsrCheckEndOfShells() {
+    if (bsrIndex >= bsrShells.length && bsrPlayerHP > 0 && bsrDealerHP > 0) {
+        bsrRound++;
+        if (bsrRound > 3) {
+            bsrLog.push('🎉 Все 3 раунда пройдены! Ты выжил!');
+            bsrWinGame();
+        } else {
+            bsrNewRound();
+        }
+    }
+}
+
+function bsrWinRound() {
+    if (bsrRound >= 3) {
+        bsrWinGame();
+    } else {
+        bsrRound++;
+        bsrMaxHP = Math.min(bsrMaxHP + 1, 5);
+        bsrPlayerHP = bsrMaxHP;
+        bsrDealerHP = bsrMaxHP;
+        bsrNewRound();
+    }
+}
+
+function bsrWinGame() {
+    var s = S();
+    var winnings = bsrBet * (2 + bsrRound);
+    s.balance += winnings; s.totalWins++; s.lossStreak = 0; save(); updateBalanceDisplay();
+    bsrState = 'over';
+    bsrLog.push('💰 Выигрыш: +' + winnings + '💰!');
+    toast('Buckshot +' + winnings + '💰!','🔫');
+}
+
+function bsrLose() {
+    var s = S();
+    s.totalLosses++; s.lossStreak++;
+    if (s.lossStreak > s.maxLossStreak) s.maxLossStreak = s.lossStreak;
+    save();
+    bsrState = 'over';
+    // Buckshot = instant death
+    setTimeout(function(){ triggerDeath(); }, 2000);
+}
+
+function bsrUseItem(idx) {
+    if (bsrState !== 'playing' || idx >= bsrItems.length) return;
+    var item = bsrItems[idx];
+    bsrItems.splice(idx, 1);
+
+    if (item === '🔍') {
+        // Лупа
+        if (bsrIndex < bsrShells.length) {
+            bsrKnownShell = bsrIndex;
+            var type = bsrShells[bsrIndex] ? '🔴 БОЕВОЙ' : '⚪ ХОЛОСТОЙ';
+            bsrLog.push('🔍 Лупа: текущий патрон — ' + type);
+            toast('Патрон: ' + type,'🔍');
+        }
+    } else if (item === '🔪') {
+        bsrSawed = true;
+        bsrLog.push('🔪 Пила активирована — следующий выстрел x2!');
+        toast('Пила: x2 урон!','🔪');
+    } else if (item === '🍺') {
+        if (bsrIndex < bsrShells.length) {
+            var ejected = bsrShells[bsrIndex] ? '🔴 боевой' : '⚪ холостой';
+            bsrLog.push('🍺 Пиво: выброшен патрон — ' + ejected);
+            bsrIndex++;
+            bsrKnownShell = -1;
+            toast('Выброшен: ' + ejected,'🍺');
+            bsrCheckEndOfShells();
+        }
+    } else if (item === '💊') {
+        if (Math.random() > 0.5) {
+            bsrPlayerHP = Math.min(bsrPlayerHP + 1, bsrMaxHP + 1);
+            bsrLog.push('💊 Таблетка: +1 HP! (' + bsrPlayerHP + ')');
+            toast('+1 HP!','💊');
+        } else {
+            bsrPlayerHP -= 1;
+            bsrLog.push('💊 Таблетка: -1 HP! (' + bsrPlayerHP + ')');
+            toast('-1 HP! 😱','💊');
+            if (bsrPlayerHP <= 0) { bsrLose(); }
+        }
+    } else if (item === '⛓️') {
+        bsrCuffed = true;
+        bsrLog.push('⛓️ Наручники на дилере — пропустит ход!');
+        toast('Дилер в наручниках!','⛓️');
+    }
+    renderCasino();
+}
+
+function renderBuckshot() {
+    var h = '<div class="cas-game-title">🔫 Buckshot Roulette</div>';
+
+    if (bsrState === 'idle') {
+        h += '<div class="cas-bsr-intro">';
+        h += '<div class="cas-bsr-gun">🔫</div>';
+        h += '<div style="color:#aaa;font-size:13px;margin:12px 0">Ты и Дилер. Дробовик. Боевые и холостые патроны. Стреляй в дилера или в себя. 3 раунда. Предметы. Выживи.</div>';
+        h += '</div>';
+        h += '<div class="cas-bet-section">';
+        h += '<div class="cas-bet-row"><span>Ставка:</span>';
+        h += '<button class="cas-chip" data-bsrbet="200">200</button>';
+        h += '<button class="cas-chip" data-bsrbet="300">300</button>';
+        h += '<button class="cas-chip" data-bsrbet="500">500</button>';
+        h += '<button class="cas-chip" data-bsrbet="1000">1K</button>';
+        h += '</div>';
+        h += '<div class="cas-bet-row"><button class="cas-spin-btn cas-rr-trigger" id="cas-bsr-start">🔫 ИГРАТЬ (' + bsrBet + '💰)</button></div>';
+        h += '</div>';
+        return h;
+    }
+
+    // HP bars
+    h += '<div class="cas-bsr-hp">';
+    h += '<div class="cas-bsr-hp-bar"><span>Ты</span><div class="cas-bsr-hearts">';
+    for (var pi = 0; pi < bsrMaxHP; pi++) h += '<span class="cas-bsr-heart' + (pi < bsrPlayerHP ? '' : ' dead') + '">❤️</span>';
+    h += '</div></div>';
+    h += '<div class="cas-bsr-hp-bar"><span>Дилер</span><div class="cas-bsr-hearts">';
+    for (var di = 0; di < bsrMaxHP; di++) h += '<span class="cas-bsr-heart' + (di < bsrDealerHP ? '' : ' dead') + '">🖤</span>';
+    h += '</div></div>';
+    h += '</div>';
+
+    // Shells display
+    h += '<div class="cas-bsr-shells">';
+    for (var si = 0; si < bsrShells.length; si++) {
+        var cls = 'cas-bsr-shell';
+        if (si < bsrIndex) cls += ' cas-bsr-spent';
+        if (si === bsrIndex) cls += ' cas-bsr-current';
+        var label = '?';
+        if (si < bsrIndex) label = bsrShells[si] ? '🔴' : '⚪';
+        else if (si === bsrKnownShell) label = bsrShells[si] ? '🔴' : '⚪';
+        h += '<div class="' + cls + '">' + label + '</div>';
+    }
+    h += '</div>';
+    h += '<div style="text-align:center;font-size:11px;color:#777">Раунд ' + bsrRound + '/3' + (bsrSawed ? ' | 🔪 ПИЛА x2' : '') + (bsrCuffed ? ' | ⛓️ НАРУЧНИКИ' : '') + '</div>';
+
+    // Items
+    if (bsrItems.length && bsrState === 'playing') {
+        h += '<div class="cas-bsr-items"><span style="font-size:11px;color:#888">Предметы:</span>';
+        for (var ii = 0; ii < bsrItems.length; ii++) {
+            h += '<button class="cas-bsr-item" data-bsritem="' + ii + '">' + bsrItems[ii] + '</button>';
+        }
+        h += '</div>';
+    }
+
+    // Actions
+    h += '<div class="cas-bet-section">';
+    if (bsrState === 'playing' && bsrIndex < bsrShells.length) {
+        h += '<div class="cas-bet-row">';
+        h += '<button class="cas-spin-btn cas-rr-trigger" id="cas-bsr-shoot-dealer">🔫 В ДИЛЕРА</button>';
+        h += '<button class="cas-spin-btn cas-bsr-self" id="cas-bsr-shoot-self">💀 В СЕБЯ</button>';
+        h += '</div>';
+    } else if (bsrState === 'dealerTurn') {
+        h += '<div style="text-align:center;color:#ff6;font-size:14px;padding:10px">⏳ Ход Дилера...</div>';
+    } else if (bsrState === 'over') {
+        h += '<div class="cas-bet-row"><button class="cas-spin-btn" id="cas-bsr-again">🔄 ЕЩЁ ПАРТИЮ</button></div>';
+    }
+    h += '</div>';
+
+    // Log
+    h += '<div class="cas-bsr-log">';
+    var logStart = Math.max(0, bsrLog.length - 6);
+    for (var li = logStart; li < bsrLog.length; li++) {
+        h += '<div class="cas-bsr-logline">' + bsrLog[li] + '</div>';
+    }
+    h += '</div>';
+
+    return h;
+}
+
+// ═══════════════════════════════════════
 //  СТАТИСТИКА
 // ═══════════════════════════════════════
 function renderStats() {
@@ -642,6 +1333,58 @@ function bindCasino() {
         S().fabOpacity = val; save(); applyFabStyle();
         var lbl = document.getElementById('cas-opacity-val');
         if (lbl) lbl.textContent = val + '%';
+    });
+
+    // Dice
+    cont.querySelectorAll('[data-dbet]').forEach(function(b) {
+        b.addEventListener('click', function() { diceBet = parseInt(b.getAttribute('data-dbet')) || 100; renderCasino(); });
+    });
+    cont.querySelectorAll('[data-dpick]').forEach(function(b) {
+        b.addEventListener('click', function() { dicePick = b.getAttribute('data-dpick') || '7'; renderCasino(); });
+    });
+    var diceBtn = document.getElementById('cas-dice-roll');
+    if (diceBtn) diceBtn.addEventListener('click', doDiceRoll);
+
+    // Russian Roulette
+    cont.querySelectorAll('[data-rrbet]').forEach(function(b) {
+        b.addEventListener('click', function() { rrBet = parseInt(b.getAttribute('data-rrbet')) || 200; renderCasino(); });
+    });
+    var rrLoadBtn = document.getElementById('cas-rr-load');
+    if (rrLoadBtn) rrLoadBtn.addEventListener('click', rrLoad);
+    var rrPullBtn = document.getElementById('cas-rr-pull');
+    if (rrPullBtn) rrPullBtn.addEventListener('click', rrPull);
+    var rrCashBtn = document.getElementById('cas-rr-cash');
+    if (rrCashBtn) rrCashBtn.addEventListener('click', rrCashOut);
+    var rrAgainBtn = document.getElementById('cas-rr-again');
+    if (rrAgainBtn) rrAgainBtn.addEventListener('click', function() { rrBullet = -1; renderCasino(); });
+
+    // Hi-Lo
+    cont.querySelectorAll('[data-hlbet]').forEach(function(b) {
+        b.addEventListener('click', function() { hiloBet = parseInt(b.getAttribute('data-hlbet')) || 100; renderCasino(); });
+    });
+    var hiloStartBtn = document.getElementById('cas-hilo-start');
+    if (hiloStartBtn) hiloStartBtn.addEventListener('click', hiloStart);
+    var hiloHiBtn = document.getElementById('cas-hilo-hi');
+    if (hiloHiBtn) hiloHiBtn.addEventListener('click', function() { hiloGuess(true); });
+    var hiloLoBtn = document.getElementById('cas-hilo-lo');
+    if (hiloLoBtn) hiloLoBtn.addEventListener('click', function() { hiloGuess(false); });
+    var hiloCashBtn = document.getElementById('cas-hilo-cash');
+    if (hiloCashBtn) hiloCashBtn.addEventListener('click', hiloCashOut);
+
+    // Buckshot Roulette
+    cont.querySelectorAll('[data-bsrbet]').forEach(function(b) {
+        b.addEventListener('click', function() { bsrBet = parseInt(b.getAttribute('data-bsrbet')) || 300; renderCasino(); });
+    });
+    var bsrStartBtn = document.getElementById('cas-bsr-start');
+    if (bsrStartBtn) bsrStartBtn.addEventListener('click', bsrStart);
+    var bsrShootDealer = document.getElementById('cas-bsr-shoot-dealer');
+    if (bsrShootDealer) bsrShootDealer.addEventListener('click', function() { bsrShoot('dealer'); });
+    var bsrShootSelf = document.getElementById('cas-bsr-shoot-self');
+    if (bsrShootSelf) bsrShootSelf.addEventListener('click', function() { bsrShoot('self'); });
+    var bsrAgainBtn = document.getElementById('cas-bsr-again');
+    if (bsrAgainBtn) bsrAgainBtn.addEventListener('click', function() { bsrState = 'idle'; renderCasino(); });
+    cont.querySelectorAll('[data-bsritem]').forEach(function(b) {
+        b.addEventListener('click', function() { bsrUseItem(parseInt(b.getAttribute('data-bsritem')) || 0); });
     });
 }
 
