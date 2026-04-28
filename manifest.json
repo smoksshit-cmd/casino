@@ -1,0 +1,12 @@
+{
+    "display_name": "Casino Royale",
+    "loading_order": 200,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "style.css",
+    "author": "Casino Dev",
+    "version": "1.0.0",
+    "homePage": "",
+    "auto_update": false
+}
