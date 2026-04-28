@@ -515,6 +515,64 @@
   background: rgba(192,57,43,0.35);
 }
 
+/* ─── Settings ───────────────────────── */
+.cas-settings-section {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: rgba(255,215,0,0.03);
+  border: 1px solid rgba(255,215,0,0.08);
+  border-radius: 10px;
+}
+.cas-setting-label {
+  font-size: 12px;
+  color: #aaa;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+.cas-input {
+  flex: 1;
+  background: #16213e;
+  border: 1px solid rgba(255,215,0,0.2);
+  border-radius: 8px;
+  color: #ffd700;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 700;
+  outline: none;
+  transition: border-color .2s;
+  -moz-appearance: textfield;
+}
+.cas-input:focus { border-color: #ffd700; }
+.cas-input::-webkit-inner-spin-button,
+.cas-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.cas-slider {
+  width: 100%;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #16213e;
+  border-radius: 3px;
+  outline: none;
+  margin-top: 4px;
+}
+.cas-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffd700;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,.3);
+}
+.cas-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffd700;
+  cursor: pointer;
+  border: none;
+}
+
 /* ─── Mobile ─────────────────────────── */
 @media (max-width: 480px) {
   #cas_drawer { max-height: 93vh; }
