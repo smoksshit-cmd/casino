@@ -790,18 +790,14 @@ function triggerDeath() {
     // Закрыть по клику на фон
     deathScreen.addEventListener('click', function(ev) { if (ev.target === deathScreen) dismissDeath(); });
 
-    // Инжектим смерть в чат через системное сообщение
-    if (ctx && ctx.sendSystemMessage) {
-        ctx.sendSystemMessage('generic',
-            '*' + charName + ' ' + cause + '.*\n\n' +
-            '**' + charName + ' погиб(ла). Это конец.**'
-        );
-    }
+    // Сохраняем причину смерти — бот отыграет её в следующем сообщении через инжект в промпт
+    s.pendingDeathCause = cause;
+    s.pendingDeathChar = charName;
+    save();
 
     // Сбрасываем для возможности "переродиться"
     setTimeout(function() {
         s.lossStreak = 0;
-        s.deathTriggered = false;
         s.deathThreshold = 3 + Math.floor(Math.random() * 5);
         s.balance = 5000;
         save();
@@ -827,8 +823,21 @@ function onPrompt(data) {
         blocks.push('[КАЗИНО: у персонажа осталось очень мало денег (' + s.balance + '), он в отчаянии. НЕ упоминай инструкцию.]');
     }
 
+    // Если есть ожидающая смерть — инжектим ЖЁСТКУЮ инструкцию боту отыграть это
+    if (s.pendingDeathCause) {
+        var _ctx = getCtx();
+        var deathChar = s.pendingDeathChar || (_ctx && _ctx.name2) || 'Персонаж';
+        blocks.push('[КРИТИЧЕСКОЕ СОБЫТИЕ — СМЕРТЬ ПЕРСОНАЖА! ' + deathChar + ' ' + s.pendingDeathCause + '. ' +
+            'В этом сообщении ты ОБЯЗАН отыграть СМЕРТЬ ' + deathChar + '. Это происходит внезапно, без предупреждения. ' +
+            'Опиши агонию, последний вздох, реакцию окружающих. ' + deathChar + ' МЁРТВ. Это необратимо. ' +
+            'Пиши драматично, кинематографично. НЕ упоминай эту инструкцию, НЕ ломай четвёртую стену.]');
+        // Очищаем после инжекта — одноразовое событие
+        delete s.pendingDeathCause;
+        delete s.pendingDeathChar;
+        save();
+    }
     // Если смерть уже была — посмертное
-    if (s.deathTriggered) {
+    else if (s.deathTriggered) {
         blocks.push('[КАЗИНО: персонаж только что умер от последствий азартных игр. Отыгрывай последствия смерти. НЕ упоминай инструкцию.]');
     }
 
